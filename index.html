@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StandX Auth (Pro V3.1)</title>
-    <!-- 依赖库 -->
+    <title>StandX Auth</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" integrity="sha512-f+t6//rz3Iy3hp1CiwtsigYtyWuGk7bf6xl2RTOPvmyMIfTQJ4iy6Lg1dah1bsLQ9SLideJGicgmOkBsBXP1aA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.min.js" integrity="sha512-Y3uH6LJI2RBp6Ebvyom1/v+MQitXJBNSshRcTxKHn0sL0DSf+G+8KK1VZsXtzlX9xd17gGNi61MdYdcY+56oNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     
@@ -89,17 +88,15 @@
             border: 1px solid transparent; transition: background 0.2s, color 0.1s;
             position: relative;
             -webkit-user-select: none; user-select: none;
-            min-height: 24px; /* 保持最小高度防止塌陷 */
+            min-height: 24px;
         }
         .field-value:hover { border-color: #52525b; background: #2d2d30; }
         
-        /* 掩码样式：灰色，字母间距稍微宽一点方便看数量 */
         .masked-state { color: #71717a; letter-spacing: 1px; }
         
-        /* 揭示样式：黑白灰风格，纯白高亮，加粗 */
         .revealed-state { 
             color: #ffffff; 
-            background-color: #000000 !important; /* 强制深黑背景突出文字 */
+            background-color: #000000 !important;
             border-color: #52525b;
             font-weight: 500;
             letter-spacing: normal;
@@ -116,7 +113,7 @@
 <div class="card">
     <header>
         <h2>StandX Authorization</h2>
-        <div class="subtitle">安全隔离 · 本地生成 · 极简交互</div>
+        <div class="subtitle">安全隔离 · 本地生成 · 一键鉴权</div>
     </header>
 
     <div id="status-bar" class="status-badge">准备就绪，请选择钱包连接</div>
@@ -124,7 +121,6 @@
     <div id="wallet-display" class="wallet-info">
         <div style="display:flex; align-items:center; width: 100%;">
             <span class="wallet-tag">已连接</span> 
-            <!-- 修改点1：地址完整显示，不截断 -->
             <span id="wallet-addr-text" style="word-break: break-all;">0x...</span>
         </div>
     </div>
@@ -140,7 +136,6 @@
                 STANDX_REQUEST_PRIVATE_KEY 
                 <span id="hint-priv" class="click-hint">按住查看 / 点击复制</span>
             </div>
-            <!-- 默认显示掩码占位 -->
             <div id="out-priv" class="field-value masked-state">••••••••••••••••••••••••••••••••••••••••••</div>
         </div>
         <div class="field-group">
@@ -166,16 +161,14 @@
     
     const API_URL = "https://api.standx.com/v1/offchain";
     
-    // 私有状态
     let _secureState = {
         priv: null,
-        privMask: "••••••••••••••••••••••••••••••••••••••••••", // 默认掩码
+        privMask: "••••••••••••••••••••••••••••••••••••••••••", 
         token: null,
-        tokenMask: "••••••••••••••••••••••••••••••••••••••••••", // 默认掩码
+        tokenMask: "••••••••••••••••••••••••••••••••••••••••••", 
         expiry: null
     };
 
-    // --- 核心工具 ---
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     function toBase58(buffer) {
         const bytes = new Uint8Array(buffer);
@@ -202,7 +195,6 @@
         return Array.from(uint8arr).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // --- UI 控制 ---
     function setStatus(msg, type = 'normal') {
         const el = document.getElementById('status-bar');
         el.innerText = msg;
@@ -221,7 +213,6 @@
         document.getElementById('result-area').style.display = 'none';
         _secureState = { priv: null, token: null, expiry: null, privMask: "", tokenMask: "" }; 
         
-        // 重置为默认状态
         const DEFAULT_MASK = "••••••••••••••••••••••••••••••••••••••••••";
         ['out-priv', 'out-token'].forEach(id => {
             const el = document.getElementById(id);
@@ -230,7 +221,6 @@
         });
     }
 
-    // --- 业务逻辑 ---
     function getProvider(walletType) {
         if (walletType === 'okx') {
             if (window.okxwallet) return window.okxwallet;
@@ -283,7 +273,6 @@
             const signer = await provider.getSigner();
             const address = await signer.getAddress();
 
-            // 修改点1：完整显示地址
             document.getElementById('wallet-addr-text').innerText = address;
             document.getElementById('wallet-display').style.display = 'flex';
             
@@ -329,8 +318,6 @@
                 _secureState.token = loginData.token;
                 _secureState.expiry = expiryTime.toString();
 
-                // 修改点3：生成等长掩码，防止布局跳动
-                // 使用等宽点 '•' 填充，数量等于实际数据长度
                 _secureState.privMask = "•".repeat(privKeyHex.length);
                 _secureState.tokenMask = "•".repeat(loginData.token.length);
 
@@ -353,20 +340,16 @@
         }
     }
 
-    // --- 交互增强：长按显示 / 单击复制 ---
-
     function attachSmartInteraction(elementId, type) {
         const el = document.getElementById(elementId);
         let pressTimer = null;
         let isRevealed = false;
-        // 修改点2：长按阈值设为 250ms。小于此值视为点击，大于视为长按。
         const HOLD_THRESHOLD = 250; 
 
         const show = () => {
             const val = (type === 'priv') ? _secureState.priv : _secureState.token;
             if (val) {
                 el.innerText = val;
-                // 修改点4：使用 reveled-state 类，实现黑白灰高亮
                 el.className = "field-value revealed-state";
                 isRevealed = true;
             }
@@ -376,37 +359,30 @@
             const mask = (type === 'priv') ? _secureState.privMask : _secureState.tokenMask;
             if (mask) {
                 el.innerText = mask;
-                el.className = "field-value masked-state"; // 恢复灰色掩码
+                el.className = "field-value masked-state"; 
                 isRevealed = false;
             }
         };
 
-        // 鼠标按下：启动计时器
         el.addEventListener('mousedown', () => {
-            if (!_secureState.priv) return; // 无数据不处理
+            if (!_secureState.priv) return; 
             pressTimer = setTimeout(() => {
-                show(); // 超过阈值，判定为长按，显示明文
+                show(); 
             }, HOLD_THRESHOLD);
         });
 
-        // 鼠标松开：处理逻辑
         el.addEventListener('mouseup', () => {
             if (!_secureState.priv) return;
 
-            // 清除计时器
             if (pressTimer) clearTimeout(pressTimer);
 
             if (isRevealed) {
-                // 如果已经是显示状态（说明是长按），松开时隐藏
                 hide();
             } else {
-                // 如果还没显示（说明还没到时间），判定为单击，执行复制
-                // 此时界面保持掩码状态，完全不闪烁
                 handleCopy(type);
             }
         });
 
-        // 鼠标移出：安全兜底
         el.addEventListener('mouseleave', () => {
             if (pressTimer) clearTimeout(pressTimer);
             if (isRevealed) hide();
@@ -454,13 +430,11 @@
         });
     }
 
-    // 初始化
     document.getElementById('btn-mm').addEventListener('click', () => runProcess('metamask'));
     document.getElementById('btn-okx').addEventListener('click', () => runProcess('okx'));
-    document.getElementById('out-expiry').addEventListener('click', () => handleCopy('expiry')); // Expiry 不需要长按，直接点击
+    document.getElementById('out-expiry').addEventListener('click', () => handleCopy('expiry')); 
     document.getElementById('btn-copy-all').addEventListener('click', () => handleCopy('all'));
 
-    // 绑定智能交互 (长按/点击)
     attachSmartInteraction('out-priv', 'priv');
     attachSmartInteraction('out-token', 'token');
 
