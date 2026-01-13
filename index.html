@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StandX Auth</title>
+    <title>StandX Auth (Secure)</title>
+    <!-- 依赖库保持 SRI 校验，这是好习惯 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" integrity="sha512-f+t6//rz3Iy3hp1CiwtsigYtyWuGk7bf6xl2RTOPvmyMIfTQJ4iy6Lg1dah1bsLQ9SLideJGicgmOkBsBXP1aA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.min.js" integrity="sha512-Y3uH6LJI2RBp6Ebvyom1/v+MQitXJBNSshRcTxKHn0sL0DSf+G+8KK1VZsXtzlX9xd17gGNi61MdYdcY+56oNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     
@@ -14,9 +15,8 @@
             --border-color: #3f3f46;   
             --text-main: #f4f4f5;      
             --text-muted: #a1a1aa;     
-            --accent-mm: #ea580c;      
-            --accent-okx: #ffffff;     
             --accent-success: #10b981; 
+            --accent-error: #ef4444;
             --code-bg: #27272a;        
             --font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
         }
@@ -52,7 +52,7 @@
             max-width: 100%; word-wrap: break-word; box-sizing: border-box;
         }
         .status-badge.active { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border-color: rgba(16, 185, 129, 0.3); }
-        .status-badge.error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+        .status-badge.error { background: rgba(239, 68, 68, 0.1); color: var(--accent-error); border-color: rgba(239, 68, 68, 0.3); }
 
         .wallet-info {
             display: none;
@@ -68,16 +68,13 @@
             border: none; padding: 18px; border-radius: 14px;
             font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 10px;
+            background: #27272a; color: #fff; border: 1px solid #52525b;
         }
-        .btn:active { transform: scale(0.98); }
+        .btn:hover:not(:disabled) { background: #3f3f46; border-color: #71717a; }
+        .btn:active:not(:disabled) { transform: scale(0.98); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
 
-        .btn-mm { background: #27272a; color: #fff; border: 1px solid #52525b; }
-        .btn-mm:hover { background: #3f3f46; border-color: #71717a; }
-        .btn-okx { background: #27272a; color: #fff; border: 1px solid #52525b; }
-        .btn-okx:hover { background: #3f3f46; border-color: #71717a; }
-
-        .btn-copy-all { width: 100%; background: var(--text-main); color: var(--bg-color); margin-top: 24px; font-size: 16px; }
+        .btn-copy-all { width: 100%; background: var(--text-main); color: var(--bg-color); margin-top: 24px; font-size: 16px; border: none;}
         .btn-copy-all:hover { opacity: 0.9; }
 
         .result-section { display: none; margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 30px; animation: fadeIn 0.4s ease-out; }
@@ -89,9 +86,14 @@
             font-family: 'SF Mono', 'Menlo', monospace; font-size: 15px; color: #e4e4e7;
             word-break: break-all; cursor: pointer;
             border: 1px solid transparent; transition: all 0.2s; line-height: 1.5;
+            position: relative;
         }
         .field-value:hover { border-color: #52525b; background: #2d2d30; }
-
+        
+        /* 增加模糊效果，防止直接窥屏 */
+        .masked-text { filter: blur(4px); transition: filter 0.2s; user-select: none; }
+        .field-value:hover .masked-text { filter: blur(0); }
+        
         .click-hint { font-size: 12px; color: var(--text-muted); font-weight: normal; opacity: 0.6; transition: all 0.2s; }
         .click-hint.success { color: var(--accent-success); opacity: 1; font-weight: bold; }
 
@@ -104,7 +106,7 @@
 <div class="card">
     <header>
         <h2>StandX Authorization</h2>
-        <div class="subtitle">安全隔离 · 本地生成 · 一键鉴权</div>
+        <div class="subtitle">安全隔离 · 本地生成 · 签名验证</div>
     </header>
 
     <div id="status-bar" class="status-badge">准备就绪，请选择钱包连接</div>
@@ -117,66 +119,48 @@
     </div>
 
     <div class="btn-grid">
-        <button id="btn-mm" class="btn btn-mm" onclick="runProcess('metamask')"><span>MetaMask</span></button>
-        <button id="btn-okx" class="btn btn-okx" onclick="runProcess('okx')"><span>OKX Wallet</span></button>
+        <button id="btn-mm" class="btn"><span>MetaMask</span></button>
+        <button id="btn-okx" class="btn"><span>OKX Wallet</span></button>
     </div>
 
     <div id="result-area" class="result-section">
         <div class="field-group">
-            <div class="field-label">STANDX_REQUEST_PRIVATE_KEY <span id="hint-priv" class="click-hint">点击复制</span></div>
-            <div id="out-priv" class="field-value highlight" onclick="smartCopy('out-priv', 'hint-priv')"></div>
+            <div class="field-label">
+                STANDX_REQUEST_PRIVATE_KEY 
+                <span id="hint-priv" class="click-hint">点击复制</span>
+            </div>
+            <!-- 注意：这里不再直接放明文，而是掩码 -->
+            <div id="out-priv" class="field-value highlight">••••••••••••••••••••••••••••••••••••••••••</div>
         </div>
         <div class="field-group">
             <div class="field-label">STANDX_TOKEN <span id="hint-token" class="click-hint">点击复制</span></div>
-            <div id="out-token" class="field-value" onclick="smartCopy('out-token', 'hint-token')"></div>
+            <div id="out-token" class="field-value"></div>
         </div>
         <div class="field-group">
             <div class="field-label">STANDX_TOKEN_EXPIRY <span id="hint-expiry" class="click-hint">点击复制</span></div>
-            <div id="out-expiry" class="field-value" onclick="smartCopy('out-expiry', 'hint-expiry')"></div>
+            <div id="out-expiry" class="field-value"></div>
         </div>
-        <button id="btn-copy-all" class="btn btn-copy-all" onclick="smartCopyAll()">复制全部配置 (.env)</button>
+        <button id="btn-copy-all" class="btn btn-copy-all">复制全部配置 (.env)</button>
     </div>
 </div>
 
 <script>
+// ----------------------------------------------------------------------
+// 立即执行函数 (IIFE) 开始
+// 作用：将变量锁在局部作用域，防止通过 window/console 直接读取敏感信息
+// ----------------------------------------------------------------------
+(function() {
+    
     const API_URL = "https://api.standx.com/v1/offchain";
-    let store = { priv: '', token: '', expiry: '' };
+    
+    // 私有存储，外部无法访问
+    let _secureState = {
+        priv: null,
+        token: null,
+        expiry: null
+    };
 
-    function smartCopy(fieldId, hintId) {
-        let textToCopy = "";
-        if(fieldId === 'out-priv') textToCopy = store.priv;
-        if(fieldId === 'out-token') textToCopy = store.token;
-        if(fieldId === 'out-expiry') textToCopy = store.expiry;
-        if(!textToCopy) return; 
-
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            const hintEl = document.getElementById(hintId);
-            const originalText = "点击复制";
-            hintEl.innerText = "复制成功";
-            hintEl.classList.add('success');
-            setTimeout(() => {
-                hintEl.classList.remove('success');
-                hintEl.innerText = originalText;
-            }, 1000);
-        });
-    }
-
-    function smartCopyAll() {
-        const str = `STANDX_REQUEST_PRIVATE_KEY=${store.priv}\nSTANDX_TOKEN=${store.token}\nSTANDX_TOKEN_EXPIRY=${store.expiry}`;
-        navigator.clipboard.writeText(str).then(() => {
-            const btn = document.getElementById('btn-copy-all');
-            const originalText = btn.innerText;
-            btn.innerText = "复制成功"; 
-            btn.style.backgroundColor = "#10b981"; 
-            btn.style.color = "#fff";
-            setTimeout(() => {
-                btn.innerText = originalText;
-                btn.style.backgroundColor = ""; 
-                btn.style.color = "";
-            }, 1500);
-        });
-    }
-
+    // --- 工具函数：Base58 与 Hex ---
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     function toBase58(buffer) {
         const bytes = new Uint8Array(buffer);
@@ -203,6 +187,8 @@
         return Array.from(uint8arr).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
+    // --- 界面控制逻辑 ---
+
     function setStatus(msg, type = 'normal') {
         const el = document.getElementById('status-bar');
         el.innerText = msg;
@@ -219,8 +205,12 @@
     function resetWalletUI() {
         document.getElementById('wallet-display').style.display = 'none';
         document.getElementById('result-area').style.display = 'none';
+        _secureState = { priv: null, token: null, expiry: null }; // 清空旧数据
     }
 
+    // --- 核心业务逻辑 ---
+
+    // 1. 获取 Provider
     function getProvider(walletType) {
         if (walletType === 'okx') {
             if (window.okxwallet) return window.okxwallet;
@@ -237,7 +227,28 @@
         }
     }
 
+    // 2. 校验环境安全
+    function checkEnvironment() {
+        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+        if (location.protocol !== 'https:' && !isLocal) {
+            setStatus("警告：当前连接不安全 (非 HTTPS)，请勿使用真实钱包！", "error");
+            return false;
+        }
+        return true;
+    }
+
+    // 3. 校验签名内容 (防止盲签)
+    function verifyMessageSecurity(message, requestId) {
+        // 简单逻辑：确保我们生成的 RequestID 出现在待签名消息中
+        // 如果服务器返回的消息里没有这个 ID，说明可能是钓鱼或中间人攻击
+        if (!message || !message.includes(requestId)) {
+            throw new Error("安全阻断：待签名消息与请求 ID 不匹配，可能存在安全风险。");
+        }
+    }
+
     async function runProcess(walletType) {
+        if (!checkEnvironment()) return;
+
         toggleUI(true);
         resetWalletUI();
         
@@ -247,10 +258,8 @@
             const providerObj = getProvider(walletType);
             if (!providerObj) throw new Error("未找到对应的钱包插件");
             if (providerObj === 'HIJACKED') {
-                alert("请在 OKX 插件设置中关闭「连接兼容钱包」以使用 MetaMask。");
-                setStatus("连接被拦截", "error");
-                toggleUI(false);
-                return;
+                alert("冲突检测：请在 OKX 插件设置中关闭「连接兼容钱包」以使用 MetaMask。");
+                throw new Error("钱包连接冲突");
             }
 
             const provider = new ethers.BrowserProvider(providerObj);
@@ -258,9 +267,7 @@
             try {
                 await provider.send("eth_requestAccounts", []);
             } catch (connErr) {
-                if (connErr.code === 4001 || connErr.code === 'ACTION_REJECTED') {
-                    throw new Error("USER_CANCELLED");
-                }
+                if (connErr.code === 4001 || connErr.code === 'ACTION_REJECTED') throw new Error("用户取消连接");
                 throw connErr;
             }
 
@@ -270,8 +277,9 @@
             document.getElementById('wallet-addr-text').innerText = address;
             document.getElementById('wallet-display').style.display = 'flex';
             
-            setStatus("已连接。正在本地生成安全密钥...", "normal");
+            setStatus("已连接。正在本地生成高强度密钥对...", "normal");
 
+            // 生成临时密钥对
             const keyPair = nacl.sign.keyPair(); 
             const privKeyHex = toHex(keyPair.secretKey).slice(0, 64);
             const pubKeyBytes = keyPair.publicKey;
@@ -283,13 +291,19 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ address: address, requestId: requestId })
             });
+
+            if (!prepResp.ok) throw new Error(`API 错误 (${prepResp.status})`);
             const prepData = await prepResp.json();
             
             if (!prepData.success || !prepData.signedData) throw new Error("API 请求被拒绝");
 
             const payloadPart = prepData.signedData.split('.')[1];
             const payload = JSON.parse(atob(payloadPart));
-            setStatus("请在钱包中确认签名...", "normal");
+
+            // [安全关键点] 校验消息内容
+            verifyMessageSecurity(payload.message, requestId);
+
+            setStatus("请在钱包中核对消息并签名...", "normal");
             
             let signature;
             try {
@@ -297,12 +311,12 @@
             } catch (signErr) {
                 if (signErr.code === 'ACTION_REJECTED' || signErr.code === 4001 || 
                     (signErr.message && signErr.message.includes('user rejected'))) {
-                    throw new Error("USER_CANCELLED");
+                    throw new Error("用户取消签名");
                 }
                 throw signErr;
             }
 
-            setStatus("正在生成最终凭证...", "normal");
+            setStatus("正在交换凭证...", "normal");
             const loginResp = await fetch(`${API_URL}/login?chain=bsc`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -312,41 +326,103 @@
                     expiresSeconds: 604800
                 })
             });
+
+            if (!loginResp.ok) throw new Error(`登录失败 (${loginResp.status})`);
             const loginData = await loginResp.json();
 
             if (loginData.token) {
                 const expiryTime = Math.floor(Date.now() / 1000) + 604800;
-                store.priv = privKeyHex;
-                store.token = loginData.token;
-                store.expiry = expiryTime.toString();
-                document.getElementById('out-priv').innerText = store.priv;
-                document.getElementById('out-token').innerText = store.token;
-                document.getElementById('out-expiry').innerText = store.expiry;
+                
+                // 将敏感数据存入闭包变量，不写入 DOM
+                _secureState.priv = privKeyHex;
+                _secureState.token = loginData.token;
+                _secureState.expiry = expiryTime.toString();
+
+                // UI 更新：只显示脱敏占位符
+                document.getElementById('out-token').innerText = _secureState.token.substring(0, 10) + "...";
+                document.getElementById('out-expiry').innerText = _secureState.expiry;
                 document.getElementById('result-area').style.display = 'block';
-                setStatus("代理凭证生成成功！", "success");
+
+                setStatus("凭证生成成功！敏感数据已安全隔离。", "success");
             } else {
                 throw new Error("未能获取 Token");
             }
 
         } catch (err) {
-            console.error(err);
-            
+            console.error("StandX Error:", err);
             resetWalletUI();
-
-            let displayMsg = err.message;
-            if (displayMsg === 'USER_CANCELLED') {
-                displayMsg = "用户已取消操作";
-            } else if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
-                displayMsg = "用户已取消操作";
-            } else if (displayMsg.length > 50) {
-                displayMsg = "操作失败: " + displayMsg.substring(0, 40) + "... (请查看控制台)";
-            }
-
-            setStatus(" " + displayMsg, "error");
+            setStatus(err.message || "未知错误，请查看控制台", "error");
         } finally {
             toggleUI(false);
         }
     }
+
+    // --- 复制功能逻辑 (只能通过点击事件触发) ---
+
+    function handleCopy(type) {
+        if (!_secureState.priv) return;
+
+        let textToCopy = "";
+        let hintId = "";
+
+        switch(type) {
+            case 'priv': 
+                textToCopy = _secureState.priv; 
+                hintId = 'hint-priv';
+                break;
+            case 'token': 
+                textToCopy = _secureState.token; 
+                hintId = 'hint-token';
+                break;
+            case 'expiry': 
+                textToCopy = _secureState.expiry; 
+                hintId = 'hint-expiry';
+                break;
+            case 'all':
+                textToCopy = `STANDX_REQUEST_PRIVATE_KEY=${_secureState.priv}\nSTANDX_TOKEN=${_secureState.token}\nSTANDX_TOKEN_EXPIRY=${_secureState.expiry}`;
+                break;
+        }
+
+        if (!textToCopy) return;
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            if (type === 'all') {
+                const btn = document.getElementById('btn-copy-all');
+                const originalText = btn.innerText;
+                btn.innerText = "复制成功"; 
+                btn.style.backgroundColor = "#10b981"; 
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.backgroundColor = ""; 
+                }, 1500);
+            } else {
+                const hintEl = document.getElementById(hintId);
+                const originalText = "点击复制";
+                hintEl.innerText = "复制成功";
+                hintEl.classList.add('success');
+                setTimeout(() => {
+                    hintEl.classList.remove('success');
+                    hintEl.innerText = originalText;
+                }, 1000);
+            }
+        }).catch(err => {
+            console.error("复制失败", err);
+            alert("复制失败，请检查浏览器权限");
+        });
+    }
+
+    // --- 绑定事件 (Event Listeners) ---
+    // 这样做的好处是 HTML 中不需要写 onclick="...", 进一步分离结构与逻辑
+    
+    document.getElementById('btn-mm').addEventListener('click', () => runProcess('metamask'));
+    document.getElementById('btn-okx').addEventListener('click', () => runProcess('okx'));
+    
+    document.getElementById('out-priv').addEventListener('click', () => handleCopy('priv'));
+    document.getElementById('out-token').addEventListener('click', () => handleCopy('token'));
+    document.getElementById('out-expiry').addEventListener('click', () => handleCopy('expiry'));
+    document.getElementById('btn-copy-all').addEventListener('click', () => handleCopy('all'));
+
+})(); // IIFE 结束
 </script>
 
 </body>
