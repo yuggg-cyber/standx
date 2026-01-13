@@ -36,6 +36,7 @@
             width: 100%; max-width: 640px;    
             padding: 48px;       
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            overflow: hidden; 
         }
 
         header { text-align: center; margin-bottom: 40px; }
@@ -49,7 +50,8 @@
             border-radius: 14px; padding: 16px; font-size: 15px;
             color: var(--text-muted); margin-bottom: 30px; transition: 0.3s;
             text-align: center;
-            max-width: 100%; word-wrap: break-word; box-sizing: border-box;
+            width: 100%; box-sizing: border-box;
+            word-break: break-all; white-space: pre-wrap;
         }
         .status-badge.active { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border-color: rgba(16, 185, 129, 0.3); }
         .status-badge.error { background: rgba(239, 68, 68, 0.1); color: var(--accent-error); border-color: rgba(239, 68, 68, 0.3); }
@@ -152,7 +154,7 @@
             </div>
             <div id="out-expiry" class="field-value"></div>
         </div>
-        <button id="btn-copy-all" class="btn btn-copy-all">复制全部配置 (.env)</button>
+        <button id="btn-copy-all" class="btn btn-copy-all">复制全部配置</button>
     </div>
 </div>
 
@@ -334,7 +336,16 @@
         } catch (err) {
             console.error(err);
             resetWalletUI();
-            setStatus(err.message || "操作失败", "error");
+            
+            if (err.code === 'ACTION_REJECTED' || err.code === 4001 || (err.message && err.message.includes('user rejected'))) {
+                setStatus("用户取消了操作", "error");
+            } else {
+                let msg = err.message || "操作失败";
+                if (msg.length > 150) {
+                    msg = "错误: " + msg.substring(0, 100) + "... (请查看控制台)";
+                }
+                setStatus(msg, "error");
+            }
         } finally {
             toggleUI(false);
         }
