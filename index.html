@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StandX Auth</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" integrity="sha512-f+t6//rz3Iy3hp1CiwtsigYtyWuGk7bf6xl2RTOPvmyMIfTQJ4iy6Lg1dah1bsLQ9SLideJGicgmOkBsBXP1aA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.min.js" integrity="sha512-Y3uH6LJI2RBp6Ebvyom1/v+MQitXJBNSshRcTxKHn0sL0DSf+G+8KK1VZsXtzlX9xd17gGNi61MdYdcY+56oNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <style>
+        :root {
+            --bg-color: #09090b;       
+            --card-bg: #18181b;        
+            --border-color: #3f3f46;   
+            --text-main: #f4f4f5;      
+            --text-muted: #a1a1aa;     
+            --accent-mm: #ea580c;      
+            --accent-okx: #ffffff;     
+            --accent-success: #10b981; 
+            --code-bg: #27272a;        
+            --font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            width: 100%; max-width: 640px;    
+            padding: 48px;       
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+
+        header { text-align: center; margin-bottom: 40px; }
+        h2 { font-weight: 700; font-size: 28px; margin: 0 0 10px 0; letter-spacing: -0.5px; }
+        .subtitle { font-size: 15px; color: var(--text-muted); }
+
+        .status-badge {
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 14px; padding: 16px; font-size: 15px;
+            color: var(--text-muted); margin-bottom: 30px; transition: 0.3s;
+            text-align: center;
+            max-width: 100%; word-wrap: break-word; box-sizing: border-box;
+        }
+        .status-badge.active { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border-color: rgba(16, 185, 129, 0.3); }
+        .status-badge.error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+
+        .wallet-info {
+            display: none;
+            background: #27272a; border-radius: 12px;
+            padding: 14px 20px; margin-bottom: 30px; border: 1px solid #52525b;
+            justify-content: space-between; align-items: center;
+            font-size: 15px; font-family: monospace;
+        }
+        .wallet-tag { background: #52525b; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; margin-right: 10px; }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .btn {
+            border: none; padding: 18px; border-radius: 14px;
+            font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+
+        .btn-mm { background: #27272a; color: #fff; border: 1px solid #52525b; }
+        .btn-mm:hover { background: #3f3f46; border-color: #71717a; }
+        .btn-okx { background: #27272a; color: #fff; border: 1px solid #52525b; }
+        .btn-okx:hover { background: #3f3f46; border-color: #71717a; }
+
+        .btn-copy-all { width: 100%; background: var(--text-main); color: var(--bg-color); margin-top: 24px; font-size: 16px; }
+        .btn-copy-all:hover { opacity: 0.9; }
+
+        .result-section { display: none; margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 30px; animation: fadeIn 0.4s ease-out; }
+        .field-group { margin-bottom: 24px; }
+        .field-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600; letter-spacing: 0.5px; }
+
+        .field-value {
+            background: var(--code-bg); padding: 18px; border-radius: 12px;
+            font-family: 'SF Mono', 'Menlo', monospace; font-size: 15px; color: #e4e4e7;
+            word-break: break-all; cursor: pointer;
+            border: 1px solid transparent; transition: all 0.2s; line-height: 1.5;
+        }
+        .field-value:hover { border-color: #52525b; background: #2d2d30; }
+
+        .click-hint { font-size: 12px; color: var(--text-muted); font-weight: normal; opacity: 0.6; transition: all 0.2s; }
+        .click-hint.success { color: var(--accent-success); opacity: 1; font-weight: bold; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .highlight { color: #e4e4e7; } 
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <header>
+        <h2>StandX Authorization</h2>
+        <div class="subtitle">安全隔离 · 本地生成 · 一键鉴权</div>
+    </header>
+
+    <div id="status-bar" class="status-badge">准备就绪，请选择钱包连接</div>
+
+    <div id="wallet-display" class="wallet-info">
+        <div style="display:flex; align-items:center;">
+            <span class="wallet-tag">已连接</span> <span id="wallet-addr-text">0x...</span>
+        </div>
+        <div style="color: #10b981; font-size: 20px;">●</div>
+    </div>
+
+    <div class="btn-grid">
+        <button id="btn-mm" class="btn btn-mm" onclick="runProcess('metamask')"><span>MetaMask</span></button>
+        <button id="btn-okx" class="btn btn-okx" onclick="runProcess('okx')"><span>OKX Wallet</span></button>
+    </div>
+
+    <div id="result-area" class="result-section">
+        <div class="field-group">
+            <div class="field-label">STANDX_REQUEST_PRIVATE_KEY <span id="hint-priv" class="click-hint">点击复制</span></div>
+            <div id="out-priv" class="field-value highlight" onclick="smartCopy('out-priv', 'hint-priv')"></div>
+        </div>
+        <div class="field-group">
+            <div class="field-label">STANDX_TOKEN <span id="hint-token" class="click-hint">点击复制</span></div>
+            <div id="out-token" class="field-value" onclick="smartCopy('out-token', 'hint-token')"></div>
+        </div>
+        <div class="field-group">
+            <div class="field-label">STANDX_TOKEN_EXPIRY <span id="hint-expiry" class="click-hint">点击复制</span></div>
+            <div id="out-expiry" class="field-value" onclick="smartCopy('out-expiry', 'hint-expiry')"></div>
+        </div>
+        <button id="btn-copy-all" class="btn btn-copy-all" onclick="smartCopyAll()">复制全部配置 (.env)</button>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://api.standx.com/v1/offchain";
+    let store = { priv: '', token: '', expiry: '' };
+
+    function smartCopy(fieldId, hintId) {
+        let textToCopy = "";
+        if(fieldId === 'out-priv') textToCopy = store.priv;
+        if(fieldId === 'out-token') textToCopy = store.token;
+        if(fieldId === 'out-expiry') textToCopy = store.expiry;
+        if(!textToCopy) return; 
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const hintEl = document.getElementById(hintId);
+            const originalText = "点击复制";
+            hintEl.innerText = "复制成功";
+            hintEl.classList.add('success');
+            setTimeout(() => {
+                hintEl.classList.remove('success');
+                hintEl.innerText = originalText;
+            }, 1000);
+        });
+    }
+
+    function smartCopyAll() {
+        const str = `STANDX_REQUEST_PRIVATE_KEY=${store.priv}\nSTANDX_TOKEN=${store.token}\nSTANDX_TOKEN_EXPIRY=${store.expiry}`;
+        navigator.clipboard.writeText(str).then(() => {
+            const btn = document.getElementById('btn-copy-all');
+            const originalText = btn.innerText;
+            btn.innerText = "复制成功"; 
+            btn.style.backgroundColor = "#10b981"; 
+            btn.style.color = "#fff";
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.backgroundColor = ""; 
+                btn.style.color = "";
+            }, 1500);
+        });
+    }
+
+    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    function toBase58(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let digits = [0];
+        for (let i = 0; i < bytes.length; i++) {
+            for (let j = 0; j < digits.length; j++) digits[j] <<= 8;
+            digits[0] += bytes[i];
+            let carry = 0;
+            for (let j = 0; j < digits.length; j++) {
+                digits[j] += carry;
+                carry = (digits[j] / 58) | 0;
+                digits[j] %= 58;
+            }
+            while (carry) {
+                digits.push(carry % 58);
+                carry = (carry / 58) | 0;
+            }
+        }
+        for (let i = 0; bytes[i] === 0 && i < bytes.length - 1; i++) digits.push(0);
+        return digits.reverse().map(d => ALPHABET[d]).join('');
+    }
+
+    function toHex(uint8arr) {
+        return Array.from(uint8arr).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function setStatus(msg, type = 'normal') {
+        const el = document.getElementById('status-bar');
+        el.innerText = msg;
+        el.className = 'status-badge'; 
+        if (type === 'success') el.classList.add('active');
+        if (type === 'error') el.classList.add('error');
+    }
+
+    function toggleUI(disabled) {
+        document.getElementById('btn-mm').disabled = disabled;
+        document.getElementById('btn-okx').disabled = disabled;
+    }
+    
+    function resetWalletUI() {
+        document.getElementById('wallet-display').style.display = 'none';
+        document.getElementById('result-area').style.display = 'none';
+    }
+
+    function getProvider(walletType) {
+        if (walletType === 'okx') {
+            if (window.okxwallet) return window.okxwallet;
+            if (window.ethereum && (window.ethereum.isOkxWallet || window.ethereum.isOKExWallet)) return window.ethereum;
+            return null;
+        } else {
+            if (!window.ethereum) return null;
+            if (window.ethereum.providers) {
+                const realMM = window.ethereum.providers.find(p => p.isMetaMask && !p.isOkxWallet && !p.isOKExWallet && !p.isBitKeep);
+                if (realMM) return realMM;
+            }
+            if (window.ethereum.isOkxWallet || window.ethereum.isOKExWallet) return 'HIJACKED'; 
+            return window.ethereum;
+        }
+    }
+
+    async function runProcess(walletType) {
+        toggleUI(true);
+        resetWalletUI();
+        
+        setStatus("正在呼叫钱包，请稍候...", "normal");
+
+        try {
+            const providerObj = getProvider(walletType);
+            if (!providerObj) throw new Error("未找到对应的钱包插件");
+            if (providerObj === 'HIJACKED') {
+                alert("请在 OKX 插件设置中关闭「连接兼容钱包」以使用 MetaMask。");
+                setStatus("连接被拦截", "error");
+                toggleUI(false);
+                return;
+            }
+
+            const provider = new ethers.BrowserProvider(providerObj);
+            
+            try {
+                await provider.send("eth_requestAccounts", []);
+            } catch (connErr) {
+                if (connErr.code === 4001 || connErr.code === 'ACTION_REJECTED') {
+                    throw new Error("USER_CANCELLED");
+                }
+                throw connErr;
+            }
+
+            const signer = await provider.getSigner();
+            const address = await signer.getAddress();
+
+            document.getElementById('wallet-addr-text').innerText = address;
+            document.getElementById('wallet-display').style.display = 'flex';
+            
+            setStatus("已连接。正在本地生成安全密钥...", "normal");
+
+            const keyPair = nacl.sign.keyPair(); 
+            const privKeyHex = toHex(keyPair.secretKey).slice(0, 64);
+            const pubKeyBytes = keyPair.publicKey;
+            const requestId = toBase58(pubKeyBytes);
+
+            setStatus("请求签名挑战 (Challenge)...", "normal");
+            const prepResp = await fetch(`${API_URL}/prepare-signin?chain=bsc`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: address, requestId: requestId })
+            });
+            const prepData = await prepResp.json();
+            
+            if (!prepData.success || !prepData.signedData) throw new Error("API 请求被拒绝");
+
+            const payloadPart = prepData.signedData.split('.')[1];
+            const payload = JSON.parse(atob(payloadPart));
+            setStatus("请在钱包中确认签名...", "normal");
+            
+            let signature;
+            try {
+                signature = await signer.signMessage(payload.message);
+            } catch (signErr) {
+                if (signErr.code === 'ACTION_REJECTED' || signErr.code === 4001 || 
+                    (signErr.message && signErr.message.includes('user rejected'))) {
+                    throw new Error("USER_CANCELLED");
+                }
+                throw signErr;
+            }
+
+            setStatus("正在生成最终凭证...", "normal");
+            const loginResp = await fetch(`${API_URL}/login?chain=bsc`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    signature: signature,
+                    signedData: prepData.signedData,
+                    expiresSeconds: 604800
+                })
+            });
+            const loginData = await loginResp.json();
+
+            if (loginData.token) {
+                const expiryTime = Math.floor(Date.now() / 1000) + 604800;
+                store.priv = privKeyHex;
+                store.token = loginData.token;
+                store.expiry = expiryTime.toString();
+                document.getElementById('out-priv').innerText = store.priv;
+                document.getElementById('out-token').innerText = store.token;
+                document.getElementById('out-expiry').innerText = store.expiry;
+                document.getElementById('result-area').style.display = 'block';
+                setStatus("代理凭证生成成功！", "success");
+            } else {
+                throw new Error("未能获取 Token");
+            }
+
+        } catch (err) {
+            console.error(err);
+            
+            resetWalletUI();
+
+            let displayMsg = err.message;
+            if (displayMsg === 'USER_CANCELLED') {
+                displayMsg = "用户已取消操作";
+            } else if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
+                displayMsg = "用户已取消操作";
+            } else if (displayMsg.length > 50) {
+                displayMsg = "操作失败: " + displayMsg.substring(0, 40) + "... (请查看控制台)";
+            }
+
+            setStatus(" " + displayMsg, "error");
+        } finally {
+            toggleUI(false);
+        }
+    }
+</script>
+
+</body>
+</html>
