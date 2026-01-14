@@ -305,14 +305,14 @@
                 body: JSON.stringify({
                     signature: signature,
                     signedData: prepData.signedData,
-                    expiresSeconds: 604800
+                    expiresSeconds: 561600
                 })
             });
 
             const loginData = await loginResp.json();
 
             if (loginData.token) {
-                const expiryTime = Math.floor(Date.now() / 1000) + 604800;
+                const expiryTime = Math.floor(Date.now() / 1000) + 561600;
                 
                 _secureState.priv = privKeyHex;
                 _secureState.token = loginData.token;
