@@ -9,14 +9,14 @@
     
     <style>
         :root {
-            --bg-color: #09090b;       
-            --card-bg: #18181b;        
-            --border-color: #3f3f46;   
-            --text-main: #f4f4f5;      
-            --text-muted: #a1a1aa;     
+            --bg-color: #f8fafc;       
+            --card-bg: #ffffff;        
+            --border-color: #e2e8f0;   
+            --text-main: #1e293b;      
+            --text-muted: #64748b;     
             --accent-success: #10b981; 
             --accent-error: #ef4444;
-            --code-bg: #27272a;        
+            --code-bg: #f1f5f9;        
             --font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
         }
 
@@ -35,7 +35,7 @@
             border-radius: 24px;
             width: 100%; max-width: 640px;    
             padding: 48px;       
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05);
             overflow: hidden; 
         }
 
@@ -45,7 +45,7 @@
 
         .status-badge {
             display: flex; align-items: center; justify-content: center;
-            background: rgba(255,255,255,0.03);
+            background: #f8fafc;
             border: 1px solid var(--border-color);
             border-radius: 14px; padding: 16px; font-size: 15px;
             color: var(--text-muted); margin-bottom: 30px; transition: 0.3s;
@@ -58,21 +58,22 @@
 
         .wallet-info {
             display: none;
-            background: #27272a; border-radius: 12px;
-            padding: 14px 20px; margin-bottom: 30px; border: 1px solid #52525b;
+            background: #f1f5f9; border-radius: 12px;
+            padding: 14px 20px; margin-bottom: 30px; border: 1px solid var(--border-color);
             justify-content: space-between; align-items: center;
             font-size: 14px; font-family: var(--font-family);
+            color: var(--text-main);
         }
-        .wallet-tag { background: #52525b; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; margin-right: 10px; }
+        .wallet-tag { background: #64748b; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; margin-right: 10px; }
 
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
         .btn {
             border: none; padding: 18px; border-radius: 14px;
             font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 10px;
-            background: #27272a; color: #fff; border: 1px solid #52525b;
+            background: #ffffff; color: #1e293b; border: 1px solid #e2e8f0;
         }
-        .btn:hover:not(:disabled) { background: #3f3f46; border-color: #71717a; }
+        .btn:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
         .btn:active:not(:disabled) { transform: scale(0.98); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
 
@@ -85,21 +86,22 @@
 
         .field-value {
             background: var(--code-bg); padding: 18px; border-radius: 12px;
-            font-family: var(--font-family); font-size: 14px; color: #e4e4e7;
+            font-family: var(--font-family); font-size: 14px; color: #334155;
             word-break: break-all; cursor: pointer; line-height: 1.6;
             border: 1px solid transparent; transition: background 0.2s, color 0.1s;
             position: relative;
             -webkit-user-select: none; user-select: none;
             min-height: 24px;
         }
-        .field-value:hover { border-color: #52525b; background: #2d2d30; }
+        .field-value:hover { border-color: #cbd5e1; background: #e2e8f0; }
         
-        .masked-state { color: #71717a; }
+        .masked-state { color: #94a3b8; }
         
         .revealed-state { 
-            color: #ffffff; 
-            background-color: #000000 !important;
-            border-color: #52525b;
+            color: #0f172a; 
+            background-color: #ffffff !important;
+            border-color: #cbd5e1;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
         }
 
         .click-hint { font-size: 12px; color: var(--text-muted); font-weight: normal; opacity: 0.6; transition: all 0.2s; }
